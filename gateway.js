@@ -10,12 +10,19 @@ const { Observable, Subject, ReplaySubject, from, of, range } = require('rxjs');
 const { map, filter, switchMap } = require('rxjs/operators');
 const Loxone = require('./loxone');
 
+const uuidPerZone = {
+  "woonkamer": "12ce8849-0036-7239-ffff735f95f7f110",
+  "Badkamer": "12ce8e8c-0236-0490-ffff735f95f7f110",
+  "Kamer Lexi": "12ce8e8e-01ab-0f4e-ffff735f95f7f110",
+  "Bureau": "12ce8e8f-00be-1a0f-ffff735f95f7f110",
+};
 
 module.exports = function() {
   const athomeSubject = new Subject();
   const atHomeChangedObservable = athomeSubject.asObservable();
   let atleastOneAtHome = true;
   let homeId;
+  let zones;
   const tado = new Tado();
   const loxone = new Loxone(cfg.loxone);
 
@@ -34,6 +41,8 @@ module.exports = function() {
 
     homeId = me.homes[0].id;
     await loxone.connect();
+    zones = (await tado.getZones(homeId)).filter(z => z.type === "HEATING");
+    console.log(zones);
     await pollDevices();
   }
 
@@ -50,18 +59,27 @@ module.exports = function() {
       athomeSubject.next(atHome);
     }
     atleastOneAtHome = atHome;
-    setTimeout(pollDevices, 15000);
+    for (const zone of zones) {
+      const zoneState = await tado.getZoneState(homeId, zone.id);
+      if (uuidPerZone[zone.name]) {
+        await loxone.sendCommand(uuidPerZone[zone.name], zoneState.sensorDataPoints.insideTemperature.celsius);
+      }
+    }
+
+    setTimeout(() => {
+      pollDevices();
+    }, 15000);
   }
 
-  atHomeChangedObservable.subscribe((atHome) => {
+  atHomeChangedObservable.subscribe(async (atHome) => {
     if (atHome) {
       console.log('atHome');
 
-      this.loxone.sendCommand('12ce6b18-0277-2dcc-ffffec7387844f58', 'pulse');
+      await loxone.sendCommand('12ce6b18-0277-2dcc-ffffec7387844f58', 'pulse');
     } else {
       console.log('notAtHome');
 
-      this.loxone.sendCommand('12ce69d5-00d9-2471-ffff255dddd2c9d4', 'pulse');
+      await loxone.sendCommand('12ce69d5-00d9-2471-ffff255dddd2c9d4', 'pulse');
     }
   });
 
