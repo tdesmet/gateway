@@ -55,16 +55,6 @@ module.exports = class Loxone {
     const file = await this.socket.send("data/LoxAPP3.json");
     console.log(file);
     this.connected = true;
-    this.keepAlive();
-  }
-
-  keepAlive() {
-    if (!this.connected) return;
-    setTimeout(async ()=> {
-      if (!this.connected) return;
-      await this.socket.send("keepalive");
-      this.keepAlive();
-    }, 1000 * 60);
   }
 
   async sendCommand(uuid, command) {
