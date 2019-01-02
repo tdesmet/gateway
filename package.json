@@ -3,8 +3,7 @@
   "version": "1.0.0",
   "description": "",
   "main": "index.js",
-  "scripts": {
-  },
+  "scripts": {},
   "author": "Tom De Smet",
   "license": "ISC",
   "dependencies": {
@@ -12,6 +11,8 @@
     "lxcommunicator": "^0.9.0",
     "node-tado-client": "^0.1.1",
     "rxjs": "^6.3.3",
+    "serialize-error": "^3.0.0",
+    "simple-node-logger": "^18.12.21",
     "uuid": "^3.3.2"
   },
   "bin": {
