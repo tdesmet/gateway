@@ -32,6 +32,10 @@ const uuidPerZone = {
   "Kamer Lexi": "12ce8e8e-01ab-0f4e-ffff735f95f7f110",
   "Bureau": "12ce8e8f-00be-1a0f-ffff735f95f7f110",
 };
+process.on('unhandledRejection', error => {
+  // Will print "unhandledRejection err is not defined"
+  log.error('unhandledRejection', serializeError(error));
+});
 
 module.exports = function() {
   const athomeSubject = new Subject();
@@ -43,18 +47,25 @@ module.exports = function() {
   const loxone = new Loxone(cfg.loxone, manager.createLogger('Loxone', 'info'));
 
   function setup() {
-    setupTado();
+    tryConnectTado();
     loxone.connect();
   }
 
-  async function setupTado() {
+  let tadoTryingToConnect = false;
+  function tryConnectTado() {
+    if (tadoTryingToConnect) return;
+    connectTado();
+  }
+
+  async function connectTado() {
+    tadoTryingToConnect = true;
     try {
       log.info("Trying to login on tado");
       // Login to the Tado Web API
       await tado.login(cfg.tado.username, cfg.tado.password);
     } catch(err) {
       log.error("Failed to login to tado ", serializeError(err));
-      setTimeout(setupTado, 10000);
+      setTimeout(connectTado, 10000);
       return;
     }
     // Get the User's information
@@ -64,14 +75,14 @@ module.exports = function() {
 
       if (!me.homes || me.homes.length === 0) {
         log.error("No homes found");
-        setTimeout(setupTado, 10000);
+        setTimeout(connectTado, 10000);
         return;
       }
 
       homeId = me.homes[0].id;
     } catch(err) {
       log.error("Failed to get me from tado ", serializeError(err));
-      setTimeout(setupTado, 10000);
+      setTimeout(connectTado, 10000);
       return;
     }
     try {
@@ -79,14 +90,36 @@ module.exports = function() {
       zones = (await tado.getZones(homeId)).filter(z => z.type === "HEATING");
     } catch (err) {
       log.error("Failed to get the zones from tado ", serializeError(err));
-      setTimeout(setupTado, 10000);
+      setTimeout(connectTado, 10000);
       return;
     }
-    pollDevices();
-    pollZones();
+    tadoTryingToConnect = false;
+    scheduleDevicesPoll();
+    scheduleZonesPoll();
+  }
+
+  let devicesPollScheduled = false;
+  function scheduleDevicesPoll() {
+    if (devicesPollScheduled) return;
+    devicesPollScheduled = true;
+    setTimeout(() => {
+      devicesPollScheduled = false;
+      pollDevices();
+    }, 15000);
+  }
+
+  let zonesPollScheduled = false;
+  function scheduleZonesPoll() {
+    if (zonesPollScheduled) return;
+    zonesPollScheduled = true;
+    setTimeout(() => {
+      zonesPollScheduled = false;
+      pollZones();
+    }, 60000);
   }
 
   async function pollDevices() {
+    log.info('pollDevices');
     try {
       const devices = await tado.getMobileDevices(homeId);
       let atHome = false;
@@ -100,15 +133,15 @@ module.exports = function() {
         athomeSubject.next(atHome);
       }
       atleastOneAtHome = atHome;
+      scheduleDevicesPoll();
     } catch (err) {
       log.error("Failed to get the mobile devices from tado", serializeError(err));
+      tryConnectTado();
     }
-    setTimeout(() => {
-      pollDevices();
-    }, 15000);
   }
 
   async function pollZones() {
+    log.info('pollZones');
     try {
       for (const zone of zones) {
         const zoneState = await tado.getZoneState(homeId, zone.id);
@@ -116,12 +149,11 @@ module.exports = function() {
           await loxone.sendCommand(uuidPerZone[zone.name], zoneState.sensorDataPoints.insideTemperature.celsius);
         }
       }
+      scheduleZonesPoll();
     } catch (err) {
       log.error("Failed to get the zone status from tado", serializeError(err));
+      tryConnectTado();
     }
-    setTimeout(() => {
-      pollZones();
-    }, 60000);
   }
 
   atHomeChangedObservable.subscribe(async (atHome) => {
