@@ -48,11 +48,11 @@ module.exports = function () {
   const loxone = new Loxone(cfg.loxone, manager.createLogger('Loxone', 'info'));
 
   function setup() {
-    tadoTask().then(() => log.info("tado task completed")).catch(e => {
+    tadoTask().then(() => log.info("tado task completed"), e => {
       log.error("tado task failed", serializeError(err));
       process.exit(1);
     });
-    loxone.connect().then(() => log.info("loxone connect completed")).catch(e => log.error("loxone connect failed", serializeError(err)));
+    loxone.connect().then(() => log.info("loxone connect completed"), e => log.error("loxone connect failed", serializeError(err)));
   }
 
   async function tadoTask() {
@@ -96,11 +96,11 @@ module.exports = function () {
           await pollZones();
           i = 0;
         }
-        tadoTryingToConnect = false;
         await pollDevices();
         i++;
         await utils.delay(15000);
       } catch (err) {
+        log.error("Tado task error, testing connection ", serializeError(err));
         if (!await testTadoConnection()) {
           isConnected = false;
         }
