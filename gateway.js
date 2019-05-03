@@ -12,8 +12,12 @@ const { map, filter, switchMap } = require('rxjs/operators');
 const Loxone = require('./loxone');
 const SimpleLogger = require('simple-node-logger');
 const serializeError = require('serialize-error');
+const to = require('await-to-js').default;
+const opts = {
+  timestampFormat: 'YYYY-MM-DD HH:mm:ss.SSS'
+};
 const manager = new SimpleLogger();
-manager.createConsoleAppender();
+manager.createConsoleAppender(opts);
 const log = manager.createLogger('Gateway', 'info');
 process.on('error', (msg) => {
   log.error('Error event caught: ', serializeError(msg));
@@ -48,74 +52,98 @@ module.exports = function () {
   const loxone = new Loxone(cfg.loxone, manager.createLogger('Loxone', 'info'));
 
   function setup() {
-    tadoTask().then(() => log.info("tado task completed"), e => {
-      log.error("tado task failed", serializeError(err));
-      process.exit(1);
-    });
-    loxone.connect().then(() => log.info("loxone connect completed"), e => log.error("loxone connect failed", serializeError(err)));
+    try {
+      tadoTask().then(() => log.info("tado task completed"), e => {
+        log.error("tado task failed", serializeError(err));
+        process.exit(1);
+      });
+      loxone.connect().then(() => log.info("loxone connect completed"), e => log.error("loxone connect failed", serializeError(err)));
+    } catch (ex) {
+      log.error("setup failed", serializeError(ex));
+    }
   }
 
   async function tadoTask() {
     let isConnected = false;
     let i = 0;
+    let err, me, ret;
     while (true) {
       try {
+        log.info("TadoTask");
         if (!isConnected) {
-          try {
-            log.info("Trying to login on tado");
-            // Login to the Tado Web API
-            await tado.login(cfg.tado.username, cfg.tado.password).catch(e => { });
-          } catch (err) {
+          log.info("Trying to login on tado");
+          // Login to the Tado Web API
+          [err] = await to(tado.login(cfg.tado.username, cfg.tado.password).catch(e => { }));
+          if (err) {
             log.error("Failed to login to tado ");
             await utils.delay(15000);
             continue;
           }
           // Get the User's information
-          try {
-            log.info("Trying to get me from tado");
-            const me = await tado.getMe();
 
-            if (!me.homes || me.homes.length === 0) {
-              log.error("No homes found");
-              await utils.delay(15000);
-              continue;
-            }
-
-            homeId = me.homes[0].id;
-          } catch (err) {
+          log.info("Trying to get me from tado");
+          [err, me] = await to(tado.getMe());
+          if (err) {
             log.error("Failed to get me from tado ");
             await utils.delay(15000);
             continue;
           }
+
+          if (!me.homes || me.homes.length === 0) {
+            log.error("No homes found");
+            await utils.delay(15000);
+            continue;
+          }
+
+          homeId = me.homes[0].id;
           isConnected = true;
         }
 
         if (i % 4 == 0) {
           log.info("Trying to get the zones from tado");
-          zones = (await tado.getZones(homeId)).filter(z => z.type === "HEATING");
-          await pollZones();
+          [err, zones] = await to(tado.getZones(homeId));
+
+          if (err) {
+            log.error("Failed to get zones from tado ");
+            [err, me] = await to(tado.getMe());
+            if (err) {
+              log.error("Failed to get me from tado ");
+              isConnected = false;
+              await utils.delay(15000);
+              continue;
+            }
+          }
+
+          zones = zones.filter(z => z.type === "HEATING");
+          if (!await pollZones()) {
+            [err, me] = await to(tado.getMe());
+            if (err) {
+              log.error("Failed to get me from tado ");
+              isConnected = false;
+              await utils.delay(15000);
+              continue;
+            }
+          }
           i = 0;
         }
-        await pollDevices();
+        if (!await pollDevices()) {
+          [err, me] = await to(tado.getMe());
+          if (err) {
+            log.error("Failed to get me from tado ");
+            isConnected = false;
+            await utils.delay(15000);
+            continue;
+          }
+        }
         i++;
         await utils.delay(15000);
       } catch (err) {
-        log.error("Tado task error, testing connection ", serializeError(err));
-        if (!await testTadoConnection()) {
-          isConnected = false;
-        }
+        log.error("Tado task error", serializeError(err));
+        isConnected = false;
       }
     }
   }
 
-  async function testTadoConnection() {
-    try {
-      await tado.getMe();
-      return true;
-    } catch (err) {
-      return false;
-    }
-  }
 
   async function pollDevices() {
     log.info('pollDevices');
@@ -132,9 +160,10 @@ module.exports = function () {
         athomeSubject.next(atHome);
       }
       atleastOneAtHome = atHome;
+      return true;
     } catch (err) {
       log.error("Failed to get the mobile devices from tado");
-      throw err;
+      return false;
     }
   }
 
@@ -147,9 +176,10 @@ module.exports = function () {
           await loxone.sendCommand(uuidPerZone[zone.name], zoneState.sensorDataPoints.insideTemperature.celsius);
         }
       }
+      return true;
     } catch (err) {
       log.error("Failed to get the zone status from tado");
-      throw err;
+      return false;
     }
   }
 

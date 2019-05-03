@@ -3,6 +3,7 @@ const WebSocketConfig = LxCommunicator.WebSocketConfig;
 const uuidv4 = require('uuid/v4');
 const serializeError = require('serialize-error');
 const utils = require('./utils');
+const to = require('await-to-js').default;
 
 module.exports = class Loxone {
   constructor(config, log) {
@@ -29,7 +30,7 @@ module.exports = class Loxone {
         this.log.info("Socket closed ", code);
         this.connected = false;
         this.log.info("Trying to reconnect");
-        this.connect().then(()=> log.info("connected to loxone")).catch(err => log.error("connection to loxone failed"));
+        this.connect().then(() => log.info("connected to loxone")).catch(err => log.error("connection to loxone failed"));
       },
       socketOnEventReceived: (socket, events, type) => {
         if (type === 2) {
@@ -53,26 +54,25 @@ module.exports = class Loxone {
   }
 
   async connect() {
+    let err, file;
     this.log.info("Trying to connect");
     if (this.connected) {
       this.log.info("We are connected, ignoring");
       return;
     }
     while (!this.connected) {
-      try {
-        // Open a Websocket connection to a miniserver by just providing the host, username and password!
-        await this.socket.open(this.config.address, this.config.username, this.config.password);
-      } catch (error) {
+      // Open a Websocket connection to a miniserver by just providing the host, username and password!
+      [err] = await to(this.socket.open(this.config.address, this.config.username, this.config.password));
+      if (err) {
         this.log.warn("Failed to connect, retrying in 10 seconds");
         await utils.delay(10000);
         continue;
       }
       //await this.socket.send("jdev/sps/enablebinstatusupdate");
-      try {
-        this.log.info("Requesting structure file");
-        const file = await this.socket.send("data/LoxAPP3.json");
-      } catch (error) {
-        this.log.error("Failed to get structure file ", serializeError(error));
+      this.log.info("Requesting structure file");
+      [err, file] = await to(this.socket.send("data/LoxAPP3.json"));
+      if (err) {
+        this.log.error("Failed to get structure file ", serializeError(err));
         this.close();
         await utils.delay(5000);
         continue;
@@ -82,13 +82,13 @@ module.exports = class Loxone {
   }
 
   async sendCommand(uuid, command) {
+    let err;
     if (!this.connected) {
       this.log.warn("Not connected, Ignoring command", serializeError({ uuid: uuid, command: command }));
       return;
     }
-    try {
-      await this.socket.send(`jdev/sps/io/${uuid}/${command}`);
-    } catch (err) {
+    [err] = await to(this.socket.send(`jdev/sps/io/${uuid}/${command}`));
+    if (err) {
       this.log.error("Failed to send command ", serializeError({ err: err, uuid: uuid, command: command }));
     }
   }
