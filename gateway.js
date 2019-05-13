@@ -1,5 +1,5 @@
 // Import the Tado client
-const Tado = require('node-tado-client');
+const Tado = require('./tado-client');
 const utils = require('./utils');
 const cfg = require('home-config').load('.lxgw', {
   "tado": {
