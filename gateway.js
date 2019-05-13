@@ -37,9 +37,8 @@ const uuidPerZone = {
   "Kamer Lexi": "12ce8e8e-01ab-0f4e-ffff735f95f7f110",
   "Bureau": "12ce8e8f-00be-1a0f-ffff735f95f7f110",
 };
-process.on('unhandledRejection', error => {
-  // Will print "unhandledRejection err is not defined"
-  log.error('unhandledRejection', serializeError(error));
+process.on('unhandledRejection', (error, promise) => {
+  throw error;
 });
 
 module.exports = function () {
@@ -73,7 +72,7 @@ module.exports = function () {
         if (!isConnected) {
           log.info("Trying to login on tado");
           // Login to the Tado Web API
-          [err] = await to(tado.login(cfg.tado.username, cfg.tado.password).catch(e => { }));
+          [err] = await to(tado.login(cfg.tado.username, cfg.tado.password));
           if (err) {
             log.error("Failed to login to tado ");
             await utils.delay(15000);
