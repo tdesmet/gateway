@@ -36,6 +36,7 @@ const uuidPerZone = {
   "Badkamer": "12ce8e8c-0236-0490-ffff735f95f7f110",
   "Kamer Lexi": "12ce8e8e-01ab-0f4e-ffff735f95f7f110",
   "Bureau": "12ce8e8f-00be-1a0f-ffff735f95f7f110",
+  "Kamer Cody": "138a4c01-020d-2197-ffff735f95f7f110",
 };
 process.on('unhandledRejection', (error, promise) => {
   throw error;
