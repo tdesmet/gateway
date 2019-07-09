@@ -57,7 +57,7 @@ module.exports = function () {
         log.error("tado task failed", serializeError(err));
         process.exit(1);
       });
-      loxone.connect().then(() => log.info("loxone connect completed"), e => log.error("loxone connect failed", serializeError(err)));
+      loxone.connect().then(() => log.info("loxone connect completed"), err => log.error("loxone connect failed", serializeError(err)));
     } catch (ex) {
       log.error("setup failed", serializeError(ex));
     }
@@ -147,8 +147,14 @@ module.exports = function () {
 
   async function pollDevices() {
     log.info('pollDevices');
+    let err, devices;
     try {
-      const devices = await tado.getMobileDevices(homeId);
+      [err, devices] = await to(tado.getMobileDevices(homeId));
+      if (err) {
+        log.error("Failed to get the mobile devices from tado");
+        return false;
+      }
+      log.info('got devices');
       let atHome = false;
       for (const device of devices) {
         if (device.location) {
@@ -169,11 +175,18 @@ module.exports = function () {
 
   async function pollZones() {
     log.info('pollZones');
+    let err, zoneState;
     try {
       for (const zone of zones) {
-        const zoneState = await tado.getZoneState(homeId, zone.id);
+        [err, zoneState] = await to(tado.getZoneState(homeId, zone.id));
+        if (err) {
+          log.error("Failed to get the zone status from tado");
+          return false;
+        }
+        log.info('got zone state');
         if (uuidPerZone[zone.name]) {
-          await loxone.sendCommand(uuidPerZone[zone.name], zoneState.sensorDataPoints.insideTemperature.celsius);
+          log.info('send command to loxone for zone ' + zone.name);
+          loxone.sendCommand(uuidPerZone[zone.name], zoneState.sensorDataPoints.insideTemperature.celsius);
         }
       }
       return true;
@@ -186,10 +199,10 @@ module.exports = function () {
   atHomeChangedObservable.subscribe(async (atHome) => {
     if (atHome) {
       log.info("Someone arrived home");
-      await loxone.sendCommand('12ce6b18-0277-2dcc-ffffec7387844f58', 'pulse');
+      loxone.sendCommand('12ce6b18-0277-2dcc-ffffec7387844f58', 'pulse');
     } else {
       log.info("Everyone has left home");
-      await loxone.sendCommand('12ce69d5-00d9-2471-ffff255dddd2c9d4', 'pulse');
+      loxone.sendCommand('12ce69d5-00d9-2471-ffff255dddd2c9d4', 'pulse');
     }
   });
 
