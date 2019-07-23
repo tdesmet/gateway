@@ -13,6 +13,7 @@ module.exports = class Loxone {
     this.config = config;
     this.log = log;
     this.cache = [];
+    this.receivedStructureFile = false;
     // Instantiate a config object to pass it to the LxCommunicator.WebSocket later
     const webSocketConfig = new WebSocketConfig(WebSocketConfig.protocol.WS, this.uuid, this.deviceInfo, WebSocketConfig.permission.APP, false);
     // OPTIONAL: assign the delegateObj to be able to react on delegate calls
@@ -61,6 +62,7 @@ module.exports = class Loxone {
       return;
     }
     while (!this.connected) {
+      this.receivedStructureFile = false;
       // Open a Websocket connection to a miniserver by just providing the host, username and password!
       [err] = await to(this.socket.open(this.config.address, this.config.username, this.config.password));
       if (err) {
@@ -68,16 +70,20 @@ module.exports = class Loxone {
         await utils.delay(10000);
         continue;
       }
+      this.connected = true;
+    }
+
+    while(!this.receivedStructureFile) {
       //await this.socket.send("jdev/sps/enablebinstatusupdate");
       this.log.info("Requesting structure file");
       [err, file] = await to(this.socket.send("data/LoxAPP3.json"));
       if (err) {
         this.log.info("Failed to get structure file ", serializeError(err));
-        this.close();
         await utils.delay(5000);
         continue;
       }
-      this.connected = true;
+      this.log.info("Received structure file");
+      this.receivedStructureFile = true;
     }
   }
 
