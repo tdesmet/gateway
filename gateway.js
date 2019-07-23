@@ -13,7 +13,6 @@ const Loxone = require('./loxone');
 const SimpleLogger = require('simple-node-logger');
 const serializeError = require('serialize-error');
 const to = require('await-to-js').default;
-const cron = require('node-cron');
 const opts = {
   timestampFormat: 'YYYY-MM-DD HH:mm:ss.SSS'
 };
@@ -186,14 +185,19 @@ module.exports = function () {
     }
   });
 
-  try {
-    cron.schedule('15 * * * * *', async () => {
+  function runTadoTask() {
+    setTimeout(async () => {
       try {
         await tadoTask();
-      } catch(err) {
-        log.info("tadoTask failed", serializeError(err));
+      } catch(e) {
+        log.info("tadoTask failed", serializeError(e));
       }
-    });
+      runTadoTask();
+    }, 15000);
+  }
+
+  try {
+    runTadoTask();
     loxone.connect().then(() => log.info("loxone connect completed"), err => log.info("loxone connect failed", serializeError(err)));
   } catch (ex) {
     log.info("setup failed", serializeError(ex));
