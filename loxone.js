@@ -30,7 +30,7 @@ module.exports = class Loxone {
         this.log.info("Socket closed ", code);
         this.connected = false;
         this.log.info("Trying to reconnect");
-        this.connect().then(() => log.info("connected to loxone")).catch(err => log.error("connection to loxone failed"));
+        this.connect().then(() => log.info("connected to loxone"), err => log.info("connection to loxone failed"));
       },
       socketOnEventReceived: (socket, events, type) => {
         if (type === 2) {
@@ -72,7 +72,7 @@ module.exports = class Loxone {
       this.log.info("Requesting structure file");
       [err, file] = await to(this.socket.send("data/LoxAPP3.json"));
       if (err) {
-        this.log.error("Failed to get structure file ", serializeError(err));
+        this.log.info("Failed to get structure file ", serializeError(err));
         this.close();
         await utils.delay(5000);
         continue;
@@ -90,7 +90,7 @@ module.exports = class Loxone {
     this.socket.send(`jdev/sps/io/${uuid}/${command}`).then(() => {
       this.log.info("success sending command");
     }, err => {
-      this.log.error("Failed to send command ", serializeError({ err: err, uuid: uuid, command: command }));
+      this.log.info("Failed to send command ", serializeError({ err: err, uuid: uuid, command: command }));
     });
   }
 }
