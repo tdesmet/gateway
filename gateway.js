@@ -13,6 +13,7 @@ const Loxone = require('./loxone');
 const SimpleLogger = require('simple-node-logger');
 const serializeError = require('serialize-error');
 const to = require('await-to-js').default;
+const cron = require('node-cron');
 const opts = {
   timestampFormat: 'YYYY-MM-DD HH:mm:ss.SSS'
 };
@@ -48,24 +49,11 @@ module.exports = function () {
   let zones;
   const tado = new Tado();
   const loxone = new Loxone(cfg.loxone, manager.createLogger('Loxone', 'info'));
-
-  function setup() {
-    try {
-      
-      tadoTask().then(() => log.info("tado task completed"), e => {
-        log.info("tado task failed", serializeError(e));
-      });
-      loxone.connect().then(() => log.info("loxone connect completed"), err => log.info("loxone connect failed", serializeError(err)));
-    } catch (ex) {
-      log.info("setup failed", serializeError(ex));
-    }
-  }
+  let runCounter = 0;
 
   async function tadoTask() {
     let isConnected = false;
-    let i = 0;
     let err, loginres, me, ret;
-    while(true) {
       try {
         log.info("TadoTask");
         if (!isConnected) {
@@ -74,8 +62,7 @@ module.exports = function () {
           [err, loginres] = await to(tado.login(cfg.tado.username, cfg.tado.password));
           if (err) {
             log.info("Failed to login to tado ");
-            await utils.delay(15000);
-            continue;
+            return;
           }
           // Get the User's information
 
@@ -83,21 +70,19 @@ module.exports = function () {
           [err, me] = await to(tado.getMe());
           if (err) {
             log.info("Failed to get me from tado ");
-            await utils.delay(15000);
-            continue;
+            return;
           }
 
           if (!me.homes || me.homes.length === 0) {
             log.info("No homes found");
-            await utils.delay(15000);
-            continue;
+            return;
           }
 
           homeId = me.homes[0].id;
           isConnected = true;
         }
 
-        if (i % 4 == 0) {
+        if (runCounter % 4 == 0) {
           log.info("Trying to get the zones from tado");
           [err, zones] = await to(tado.getZones(homeId));
 
@@ -107,8 +92,7 @@ module.exports = function () {
             if (err) {
               log.info("Failed to get me from tado ");
               isConnected = false;
-              await utils.delay(15000);
-              continue;
+              return;
             }
           }
 
@@ -118,28 +102,25 @@ module.exports = function () {
             if (err) {
               log.info("Failed to get me from tado ");
               isConnected = false;
-              await utils.delay(15000);
-              continue;
+              return;
             }
           }
-          i = 0;
+          runCounter = 0;
         }
         if (!await pollDevices()) {
           [err, me] = await to(tado.getMe());
           if (err) {
             log.info("Failed to get me from tado ");
             isConnected = false;
-            await utils.delay(15000);
-            continue;
+            return;
           }
         }
-        i++;
-        await utils.delay(15000);
+        runCounter++;
+        return;
       } catch (err) {
         log.info("Tado task error", serializeError(err));
         isConnected = false;
       }
-    }
   }
 
 
@@ -205,5 +186,16 @@ module.exports = function () {
     }
   });
 
-  setup();
+  try {
+    cron.schedule('15 * * * * *', async () => {
+      try {
+        await tadoTask();
+      } catch(err) {
+        log.info("tadoTask failed", serializeError(err));
+      }
+    });
+    loxone.connect().then(() => log.info("loxone connect completed"), err => log.info("loxone connect failed", serializeError(err)));
+  } catch (ex) {
+    log.info("setup failed", serializeError(ex));
+  }
 }
