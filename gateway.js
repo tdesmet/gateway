@@ -49,9 +49,9 @@ module.exports = function () {
   const tado = new Tado(manager.createLogger('Tado', 'info'));
   const loxone = new Loxone(cfg.loxone, manager.createLogger('Loxone', 'info'));
   let runCounter = 0;
+  let isConnected = false;
 
   async function tadoTask() {
-    let isConnected = false;
     let err, loginres, me, ret;
       try {
         log.info("TadoTask");
