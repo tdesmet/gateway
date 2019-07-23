@@ -187,6 +187,7 @@ module.exports = function () {
         if (uuidPerZone[zone.name]) {
           log.info('send command to loxone for zone ' + zone.name);
           loxone.sendCommand(uuidPerZone[zone.name], zoneState.sensorDataPoints.insideTemperature.celsius);
+          log.info('done sending command to loxone for zone ' + zone.name);
         }
       }
       return true;

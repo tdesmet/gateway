@@ -82,11 +82,14 @@ module.exports = class Loxone {
   }
 
   sendCommand(uuid, command) {
+    this.log.info("sending command to loxone");
     if (!this.connected) {
       this.log.warn("Not connected, Ignoring command", serializeError({ uuid: uuid, command: command }));
       return;
     }
-    this.socket.send(`jdev/sps/io/${uuid}/${command}`).catch(err => {
+    this.socket.send(`jdev/sps/io/${uuid}/${command}`).then(() => {
+      this.log.info("success sending command");
+    }, err => {
       this.log.error("Failed to send command ", serializeError({ err: err, uuid: uuid, command: command }));
     });
   }
