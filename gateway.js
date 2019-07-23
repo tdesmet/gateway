@@ -59,8 +59,12 @@ module.exports = function () {
   }
 
   function scheduleNextRunForTadoTask(timeInMs) {
-    setTimeout(() => {
-      tadoTask();
+    setTimeout(async () => {
+      try {
+        await tadoTask();
+      } catch(e) {
+        log.info("tadoTask failed ", serializeError(err));
+      }
     }, timeInMs);
   }
 
@@ -81,7 +85,7 @@ module.exports = function () {
         }
         // Get the User's information
 
-        log.info("Trying to get mtado.login()e from tado");
+        log.info("Trying to get me from tado");
         [err, me] = await to(tado.getMe());
         if (err) {
           log.info("Failed to get me from tado ");
