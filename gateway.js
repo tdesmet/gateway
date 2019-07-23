@@ -185,19 +185,19 @@ module.exports = function () {
     }
   });
 
-  function runTadoTask() {
+  function runTadoTask(timeInMs) {
     setTimeout(async () => {
       try {
         await tadoTask();
       } catch(e) {
         log.info("tadoTask failed", serializeError(e));
       }
-      runTadoTask();
-    }, 15000);
+      runTadoTask(15000);
+    }, timeInMs);
   }
 
   try {
-    runTadoTask();
+    runTadoTask(0);
     loxone.connect().then(() => log.info("loxone connect completed"), err => log.info("loxone connect failed", serializeError(err)));
   } catch (ex) {
     log.info("setup failed", serializeError(ex));
