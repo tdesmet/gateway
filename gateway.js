@@ -46,7 +46,7 @@ module.exports = function () {
   let atleastOneAtHome = true;
   let homeId;
   let zones;
-  const tado = new Tado();
+  const tado = new Tado(manager.createLogger('Tado', 'info'));
   const loxone = new Loxone(cfg.loxone, manager.createLogger('Loxone', 'info'));
   let runCounter = 0;
 

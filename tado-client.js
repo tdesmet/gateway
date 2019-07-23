@@ -25,8 +25,9 @@ const auth = new ClientOAuth2({
 })
 
 class Tado {
-    constructor() {
+    constructor(log) {
         this._accessToken;
+        this.log = log;
     }
 
     _refreshToken() {
@@ -65,8 +66,8 @@ class Tado {
             .then(result => {
                 this._accessToken = result;
                 resolve(result);
-            })
-            .catch(error => {
+            }, error => {
+                this.info("error on getToken");
                 reject(error);
             });
             // oauth2.ownerPassword.getToken(credentials)
