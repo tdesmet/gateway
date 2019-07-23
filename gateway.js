@@ -19,9 +19,7 @@ const opts = {
 const manager = new SimpleLogger();
 manager.createConsoleAppender(opts);
 const log = manager.createLogger('Gateway', 'info');
-process.on('error', (msg) => {
-  log.info('Error event caught: ', serializeError(msg));
-});
+
 console.error = function (...args) {
   log.info(...args);
 };
