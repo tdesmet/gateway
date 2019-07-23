@@ -51,21 +51,14 @@ module.exports = function () {
 
   function setup() {
     try {
-      scheduleNextRunForTadoTask(0);
-       loxone.connect().then(() => log.info("loxone connect completed"), err => log.info("loxone connect failed", serializeError(err)));
+      
+      tadoTask().then(() => log.info("tado task completed"), e => {
+        log.info("tado task failed", serializeError(e));
+      });
+      loxone.connect().then(() => log.info("loxone connect completed"), err => log.info("loxone connect failed", serializeError(err)));
     } catch (ex) {
       log.info("setup failed", serializeError(ex));
     }
-  }
-
-  function scheduleNextRunForTadoTask(timeInMs) {
-    setTimeout(async () => {
-      try {
-        await tadoTask();
-      } catch(e) {
-        log.info("tadoTask failed ", serializeError(err));
-      }
-    }, timeInMs);
   }
 
   async function tadoTask() {
@@ -80,8 +73,8 @@ module.exports = function () {
         [err, loginres] = await to(tado.login(cfg.tado.username, cfg.tado.password));
         if (err) {
           log.info("Failed to login to tado ");
-          scheduleNextRunForTadoTask(15000);
-          return;
+          await utils.delay(15000);
+          continue;
         }
         // Get the User's information
 
@@ -89,14 +82,14 @@ module.exports = function () {
         [err, me] = await to(tado.getMe());
         if (err) {
           log.info("Failed to get me from tado ");
-          scheduleNextRunForTadoTask(15000);
-          return;
+          await utils.delay(15000);
+          continue;
         }
 
         if (!me.homes || me.homes.length === 0) {
           log.info("No homes found");
-          scheduleNextRunForTadoTask(15000);
-          return;
+          await utils.delay(15000);
+          continue;
         }
 
         homeId = me.homes[0].id;
@@ -113,8 +106,8 @@ module.exports = function () {
           if (err) {
             log.info("Failed to get me from tado ");
             isConnected = false;
-            scheduleNextRunForTadoTask(15000);
-            return;
+            await utils.delay(15000);
+            continue;
           }
         }
 
@@ -124,8 +117,8 @@ module.exports = function () {
           if (err) {
             log.info("Failed to get me from tado ");
             isConnected = false;
-            scheduleNextRunForTadoTask(15000);
-            return;
+            await utils.delay(15000);
+            continue;
           }
         }
         i = 0;
@@ -135,13 +128,12 @@ module.exports = function () {
         if (err) {
           log.info("Failed to get me from tado ");
           isConnected = false;
-          scheduleNextRunForTadoTask(15000);
-          return;
+          await utils.delay(15000);
+          continue;
         }
       }
       i++;
-      scheduleNextRunForTadoTask(15000);
-      return;
+      await utils.delay(15000);
     } catch (err) {
       log.info("Tado task error", serializeError(err));
       isConnected = false;
