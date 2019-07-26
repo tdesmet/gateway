@@ -51,6 +51,7 @@ module.exports = function () {
   let runCounter = 0;
   let isConnected = false;
 
+
   async function tadoTask() {
     let err, loginres, me, ret;
       try {
@@ -58,7 +59,7 @@ module.exports = function () {
         if (!isConnected) {
           log.info("Trying to login on tado");
           // Login to the Tado Web API
-          [err, loginres] = await to(tado.login(cfg.tado.username, cfg.tado.password));
+          [err, loginres] = await utils.callFuncWithTimeout(() => tado.login(cfg.tado.username, cfg.tado.password));
           if (err) {
             log.info("Failed to login to tado ");
             return;
@@ -66,7 +67,7 @@ module.exports = function () {
           // Get the User's information
 
           log.info("Trying to get me from tado");
-          [err, me] = await to(tado.getMe());
+          [err, me] = await utils.callFuncWithTimeout(() => tado.getMe());
           if (err) {
             log.info("Failed to get me from tado ");
             return;
@@ -83,11 +84,11 @@ module.exports = function () {
 
         if (runCounter % 4 == 0) {
           log.info("Trying to get the zones from tado");
-          [err, zones] = await to(tado.getZones(homeId));
+          [err, zones] = await utils.callFuncWithTimeout(() => tado.getZones(homeId));
 
           if (err) {
             log.info("Failed to get zones from tado ");
-            [err, me] = await to(tado.getMe());
+            [err, me] = await utils.callFuncWithTimeout(() => tado.getMe());
             if (err) {
               log.info("Failed to get me from tado ");
               isConnected = false;
@@ -97,7 +98,7 @@ module.exports = function () {
 
           zones = zones.filter(z => z.type === "HEATING");
           if (!await pollZones()) {
-            [err, me] = await to(tado.getMe());
+            [err, me] = await utils.callFuncWithTimeout(() => tado.getMe());
             if (err) {
               log.info("Failed to get me from tado ");
               isConnected = false;
@@ -107,7 +108,7 @@ module.exports = function () {
           runCounter = 0;
         }
         if (!await pollDevices()) {
-          [err, me] = await to(tado.getMe());
+          [err, me] = await utils.callFuncWithTimeout(() => tado.getMe());
           if (err) {
             log.info("Failed to get me from tado ");
             isConnected = false;
@@ -127,7 +128,7 @@ module.exports = function () {
     log.info('pollDevices');
     let err, devices;
     try {
-      [err, devices] = await to(tado.getMobileDevices(homeId));
+      [err, devices] = await utils.callFuncWithTimeout(() => tado.getMobileDevices(homeId));
       if (err) {
         log.info("Failed to get the mobile devices from tado");
         return false;
@@ -156,7 +157,7 @@ module.exports = function () {
     let err, zoneState;
     try {
       for (const zone of zones) {
-        [err, zoneState] = await to(tado.getZoneState(homeId, zone.id));
+        [err, zoneState] = await utils.callFuncWithTimeout(() => tado.getZoneState(homeId, zone.id));
         if (err) {
           log.info("Failed to get the zone status from tado");
           return false;
@@ -188,7 +189,7 @@ module.exports = function () {
   function runTadoTask(timeInMs) {
     setTimeout(async () => {
       try {
-        await tadoTask();
+        await utils.callFuncWithTimeout(() => tadoTask(), 60000);
       } catch(e) {
         log.info("tadoTask failed", serializeError(e));
       }

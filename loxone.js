@@ -64,7 +64,7 @@ module.exports = class Loxone {
     while (!this.connected) {
       this.receivedStructureFile = false;
       // Open a Websocket connection to a miniserver by just providing the host, username and password!
-      [err] = await to(this.socket.open(this.config.address, this.config.username, this.config.password));
+      [err] = await utils.callFuncWithTimeout(() => this.socket.open(this.config.address, this.config.username, this.config.password));
       if (err) {
         this.log.warn("Failed to connect, retrying in 10 seconds");
         await utils.delay(10000);
@@ -76,7 +76,7 @@ module.exports = class Loxone {
     while(!this.receivedStructureFile) {
       //await this.socket.send("jdev/sps/enablebinstatusupdate");
       this.log.info("Requesting structure file");
-      [err, file] = await to(this.socket.send("data/LoxAPP3.json"));
+      [err, file] = await utils.callFuncWithTimeout(() => this.socket.send("data/LoxAPP3.json"));
       if (err) {
         this.log.info("Failed to get structure file ", serializeError(err));
         await utils.delay(5000);
