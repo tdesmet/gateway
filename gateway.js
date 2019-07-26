@@ -198,8 +198,8 @@ module.exports = function () {
   }
 
   try {
-    runTadoTask(0);
     loxone.connect().then(() => log.info("loxone connect completed"), err => log.info("loxone connect failed", serializeError(err)));
+    runTadoTask(5000);
   } catch (ex) {
     log.info("setup failed", serializeError(ex));
   }

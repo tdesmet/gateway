@@ -34,6 +34,7 @@ module.exports = class Loxone {
         this.connect().then(() => log.info("connected to loxone"), err => log.info("connection to loxone failed"));
       },
       socketOnEventReceived: (socket, events, type) => {
+        this.log.info("socket event received ", type, events);
         if (type === 2) {
           for (const event of events) {
             this.cache[event.uuid] = event;
